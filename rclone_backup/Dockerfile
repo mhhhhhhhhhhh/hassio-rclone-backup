@@ -24,7 +24,6 @@ RUN if [ "${BUILD_ARCH}" = "armhf" ]; then \
     fi \
     && go build -o scheduler.bin
 
-
 FROM $BUILD_FROM
 
 # Build arguments
@@ -37,8 +36,10 @@ ARG BUILD_REPOSITORY
 ARG BUILD_VERSION
 
 ENV LANG=C.UTF-8
-# renovate: datasource=github-releases depName=rclone packageName=rclone/rclone
+
+# Latest rclone beta
 ENV RCLONE_INSTALLED_VERSION=beta-latest
+
 # renovate: datasource=github-releases depName=rclone-webui packageName=rclone/rclone-webui-react
 ENV RCLONE_WEBUI_INSTALLED_VERSION=2.0.5
 
@@ -51,7 +52,8 @@ RUN apk add fuse \
 COPY rootfs /
 
 # Download Web GUI
-RUN curl -LJo /tmp/currentbuild.zip https://github.com/rclone/rclone-webui-react/releases/download/v"${RCLONE_WEBUI_INSTALLED_VERSION}"/currentbuild.zip \
+RUN curl -fLJo /tmp/currentbuild.zip \
+        https://github.com/rclone/rclone-webui-react/releases/download/v"${RCLONE_WEBUI_INSTALLED_VERSION}"/currentbuild.zip \
     && unzip /tmp/currentbuild.zip -d /tmp \
     && mkdir -p /usr/share/rclone-webui-react \
     && mv /tmp/build/* /usr/share/rclone-webui-react \
@@ -61,27 +63,26 @@ RUN curl -LJo /tmp/currentbuild.zip https://github.com/rclone/rclone-webui-react
 RUN chmod a+x /etc/cont-init.d/*
 RUN chmod a+x /etc/services.d/*/*
 
-# Install requirements for add-on
-RUN if [ "${BUILD_ARCH}" = "armhf" ]; then \
-        curl -LJo /tmp/rclone.zip https://github.com/rclone/rclone/releases/download/v"${RCLONE_INSTALLED_VERSION}"/rclone-v"${RCLONE_INSTALLED_VERSION}"-linux-arm.zip; \
-    elif [ "${BUILD_ARCH}" = "armv7" ]; then \
-        curl -LJo /tmp/rclone.zip https://github.com/rclone/rclone/releases/download/v"${RCLONE_INSTALLED_VERSION}"/rclone-v"${RCLONE_INSTALLED_VERSION}"-linux-arm-v7.zip; \
-    elif [ "${BUILD_ARCH}" = "aarch64" ]; then \
-        curl -LJo /tmp/rclone.zip https://github.com/rclone/rclone/releases/download/v"${RCLONE_INSTALLED_VERSION}"/rclone-v"${RCLONE_INSTALLED_VERSION}"-linux-arm64.zip; \
-    elif [ "${BUILD_ARCH}" = "i386" ]; then \
-        curl -LJo /tmp/rclone.zip https://github.com/rclone/rclone/releases/download/v"${RCLONE_INSTALLED_VERSION}"/rclone-v"${RCLONE_INSTALLED_VERSION}"-linux-386.zip; \
-    elif [ "${BUILD_ARCH}" = "amd64" ]; then \
-        curl -LJo /tmp/rclone.zip https://github.com/rclone/rclone/releases/download/v"${RCLONE_INSTALLED_VERSION}"/rclone-v"${RCLONE_INSTALLED_VERSION}"-linux-amd64.zip; \
-    else \
-        exit 1; \
-    fi \
-    && unzip /tmp/rclone.zip -d /tmp \
-    && cp /tmp/rclone-*/rclone /usr/bin/rclone  \
-    && chmod 755 /usr/bin/rclone \
-    && rm -rf /tmp/rclone* \
-    && mkdir -p /root/.config/rclone
+# Download and install latest rclone beta
+RUN set -eu; \
+    case "${BUILD_ARCH}" in \
+        armhf)   RCLONE_ARCH="arm" ;; \
+        armv7)   RCLONE_ARCH="arm-v7" ;; \
+        aarch64) RCLONE_ARCH="arm64" ;; \
+        i386)    RCLONE_ARCH="386" ;; \
+        amd64)   RCLONE_ARCH="amd64" ;; \
+        *) echo "Unsupported architecture: ${BUILD_ARCH}" >&2; exit 1 ;; \
+    esac; \
+    curl --fail --location --retry 3 \
+        --output /tmp/rclone.zip \
+        "https://beta.rclone.org/rclone-beta-latest-linux-${RCLONE_ARCH}.zip"; \
+    unzip /tmp/rclone.zip -d /tmp; \
+    cp /tmp/rclone-*/rclone /usr/bin/rclone; \
+    chmod 755 /usr/bin/rclone; \
+    rm -rf /tmp/rclone*; \
+    mkdir -p /root/.config/rclone
 
-# add scheduler binary
+# Add scheduler binary
 COPY --from=build /app/scheduler.bin /usr/bin/scheduler
 
 # Labels
@@ -90,7 +91,7 @@ LABEL \
     io.hass.description="${BUILD_DESCRIPTION}" \
     io.hass.arch="${BUILD_ARCH}" \
     io.hass.type="addon" \
-    io.hass.version=${BUILD_VERSION} \
+    io.hass.version="${BUILD_VERSION}" \
     maintainer="Josh Willox" \
     org.opencontainers.image.title="${BUILD_NAME}" \
     org.opencontainers.image.description="${BUILD_DESCRIPTION}" \
@@ -100,6 +101,6 @@ LABEL \
     org.opencontainers.image.url="https://github.com/${BUILD_REPOSITORY}" \
     org.opencontainers.image.source="https://github.com/${BUILD_REPOSITORY}" \
     org.opencontainers.image.documentation="https://github.com/${BUILD_REPOSITORY}/blob/main/README.md" \
-    org.opencontainers.image.created=${BUILD_DATE} \
-    org.opencontainers.image.revision=${BUILD_REF} \
-    org.opencontainers.image.version=${BUILD_VERSION}
+    org.opencontainers.image.created="${BUILD_DATE}" \
+    org.opencontainers.image.revision="${BUILD_REF}" \
+    org.opencontainers.image.version="${BUILD_VERSION}"
