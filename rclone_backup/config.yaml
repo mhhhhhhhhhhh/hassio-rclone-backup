@@ -1,5 +1,5 @@
 ---
-name: Rclone Backup - custom
+name: Rclone Backup
 version: 3.4.7
 slug: rclone_backup
 description: Automatically sync backup to remote locations using rclone
