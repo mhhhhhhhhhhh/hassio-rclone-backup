@@ -10,7 +10,7 @@ arch:
   - amd64
   - i386
 init: false
-url: https://github.com/jcwillox/hassio-rclone-backup
+url: https://github.com/mhhhhhhhhhhh/hassio-rclone-backup
 homeassistant_api: true
 ingress: true
 panel_icon: mdi:cloud-sync
